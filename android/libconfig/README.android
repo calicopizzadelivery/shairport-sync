@@ -1,0 +1,16 @@
+libconfig, bundled for the Android port.
+
+Copied verbatim from AOSP's external/libconfig (lib/), which is upstream
+libconfig at https://github.com/hyperrealm/libconfig, LGPL-2.1.
+
+Why it is here rather than linked: AOSP declares libconfig as
+cc_library_host_static -- host only, and with visibility restricted to
+//external/wmediumd -- so there is no device variant to link against. libconfig
+is not optional for shairport-sync: 24 of its functions are used across 202
+call sites in shairport.c and common.c, unguarded, so it cannot be configured
+out either.
+
+Bundling it inside this fork keeps the change in the one repository that
+already exists to carry the Android port, instead of forking an AOSP project or
+duplicating the source into the product tree. The sources are unmodified; the
+build is in ../../Android.bp.

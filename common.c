@@ -80,7 +80,8 @@
 #endif
 
 #ifdef CONFIG_OPENSSL
-#include <openssl/aes.h> // needed for older AES stuff
+#include <openssl/aes.h>
+#include <openssl/base64.h> // needed for older AES stuff
 #include <openssl/bio.h> // needed for BIO_new_mem_buf
 #include <openssl/err.h> // needed for ERR_error_string, ERR_get_error
 #include <openssl/evp.h> // needed for EVP_PKEY_CTX_new, EVP_PKEY_sign_init, EVP_PKEY_sign
@@ -723,28 +724,24 @@ uint8_t *base64_dec(char *input, int *outlen) {
 #endif
 
 #ifdef CONFIG_OPENSSL
+/*
+ * BoringSSL declares BIO_f_base64 but ships no implementation, so the
+ * BIO-based versions upstream uses link-fail on Android. EVP_EncodeBlock and
+ * EVP_DecodeBase64 are the supported equivalents and give the same bytes:
+ * EVP_EncodeBlock emits no line breaks, which is what BIO_FLAGS_BASE64_NO_NL
+ * was asking the BIO for.
+ */
 char *base64_enc(uint8_t *input, int length) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  BIO *bmem, *b64;
-  BUF_MEM *bptr;
-  b64 = BIO_new(BIO_f_base64());
-  bmem = BIO_new(BIO_s_mem());
-  b64 = BIO_push(b64, bmem);
-  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-  BIO_write(b64, input, length);
-  (void)BIO_flush(b64);
-  BIO_get_mem_ptr(b64, &bptr);
 
-  char *buf = (char *)malloc(bptr->length);
+  size_t encoded_length;
+  if (!EVP_EncodedLength(&encoded_length, (size_t)length))
+    die("could not compute the base64 length in base64_enc");
+  char *buf = (char *)malloc(encoded_length);
   if (buf == NULL)
     die("could not allocate memory for buf in base64_enc");
-  if (bptr->length) {
-    memcpy(buf, bptr->data, bptr->length - 1);
-    buf[bptr->length - 1] = 0;
-  }
-
-  BIO_free_all(b64);
+  EVP_EncodeBlock((uint8_t *)buf, input, (size_t)length); /* NUL terminates */
 
   pthread_setcancelstate(oldState, NULL);
   return buf;
@@ -753,29 +750,38 @@ char *base64_enc(uint8_t *input, int length) {
 uint8_t *base64_dec(char *input, int *outlen) {
   int oldState;
   pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldState);
-  BIO *bmem, *b64;
-  int inlen = strlen(input);
 
-  b64 = BIO_new(BIO_f_base64());
-  BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
-  bmem = BIO_new(BIO_s_mem());
-  b64 = BIO_push(b64, bmem);
+  /* Apple cut the padding off their challenges; restore it. EVP_DecodeBase64
+     rejects unpadded input where the BIO decoder tolerated it. */
+  size_t inlen = strlen(input);
+  size_t padded_len = (inlen + 3) & ~(size_t)3;
+  char *padded = (char *)malloc(padded_len + 1);
+  if (padded == NULL)
+    die("could not allocate memory for the padded input in base64_dec");
+  memcpy(padded, input, inlen);
+  memset(padded + inlen, '=', padded_len - inlen);
+  padded[padded_len] = '\0';
 
-  // Apple cut the padding off their challenges; restore it
-  BIO_write(bmem, input, inlen);
-  while (inlen++ & 3)
-    BIO_write(bmem, "=", 1);
-  (void)BIO_flush(bmem);
+  size_t max_len;
+  if (!EVP_DecodedLength(&max_len, padded_len)) {
+    free(padded);
+    die("could not compute the decoded length in base64_dec");
+  }
+  uint8_t *buf = (uint8_t *)malloc(max_len);
+  if (buf == NULL) {
+    free(padded);
+    die("could not allocate memory for buf in base64_dec");
+  }
 
-  int bufsize = strlen(input) * 3 / 4 + 1;
-  uint8_t *buf = malloc(bufsize);
-  int nread;
+  size_t decoded_len = 0;
+  if (!EVP_DecodeBase64(buf, &decoded_len, max_len, (const uint8_t *)padded, padded_len)) {
+    free(padded);
+    free(buf);
+    die("could not decode base64 in base64_dec");
+  }
+  free(padded);
 
-  nread = BIO_read(b64, buf, bufsize);
-
-  BIO_free_all(b64);
-
-  *outlen = nread;
+  *outlen = (int)decoded_len;
   pthread_setcancelstate(oldState, NULL);
   return buf;
 }

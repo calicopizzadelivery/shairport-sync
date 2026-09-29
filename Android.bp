@@ -1,0 +1,96 @@
+// SPDX-FileCopyrightText: 2026 The LineageOS Project
+// SPDX-License-Identifier: Apache-2.0
+//
+// AirPlay 1 (RAOP) audio receiver. See android/config.h for what is and is not
+// built in, and why.
+
+package {
+    default_applicable_licenses: ["external_shairport_sync_license"],
+}
+
+license {
+    name: "external_shairport_sync_license",
+    visibility: [":__subpackages__"],
+    license_kinds: ["SPDX-license-identifier-MIT"],
+    license_text: ["LICENSES"],
+}
+
+// Bundled because AOSP's libconfig is host-only; see android/libconfig/README.android.
+cc_library_static {
+    name: "libconfig_shairport",
+    srcs: ["android/libconfig/*.c"],
+    c_std: "gnu99",
+    export_include_dirs: ["android/libconfig"],
+    cflags: [
+        "-DHAVE_USELOCALE",
+        "-DHAVE_FREELOCALE",
+        "-DHAVE_NEWLOCALE",
+        "-Wno-unused-parameter",
+        "-Wno-unused-function",
+        "-Wno-sign-compare",
+    ],
+}
+
+cc_binary {
+    name: "shairport-sync",
+    // Not product_specific: libconfig is a stock AOSP module with no product
+    // variant, and forking it just to move this binary is not worth it.
+
+    srcs: [
+        "shairport.c",
+        "bonjour_strings.c",
+        "mdns.c",
+        "common.c",
+        "rtp.c",
+        "player.c",
+        "audio.c",
+        "loudness.c",
+        "activity_monitor.c",
+        "rtsp.c",
+        "utilities/debug.c",
+        "utilities/network_utilities.c",
+        "utilities/rtsp_message_utilities.c",
+        "utilities/string_utilities.c",
+        "utilities/exit.c",
+
+        // bionic has no thread cancellation; see android/pthread_cancel_shim.h
+        "android/pthread_cancel_shim.c",
+
+        // mDNS: bundled tinysvcmdns, no Avahi
+        "mdns_tinysvcmdns.c",
+        "tinysvcmdns.c",
+
+        // ALAC: bundled Hammerton decoder
+        "alac.c",
+
+        // audio back ends
+        "audio_dummy.c",
+        "audio_pipe.c",
+        "audio_stdout.c",
+    ],
+
+    // android/ first so our config.h is the one that gets picked up.
+    local_include_dirs: ["android", "."],
+
+    cflags: [
+        "-DHAVE_CONFIG_H",
+        // The autotools build force-includes this into every translation unit
+        // (AM_CFLAGS --include=utilities/debug.h); the code relies on it.
+        "-include utilities/debug.h",
+        "-include android/pthread_cancel_shim.h",
+        "-Wno-multichar",
+        "-Wno-unused-parameter",
+        "-Wno-sign-compare",
+        "-Wno-missing-field-initializers",
+        "-Wno-gnu-pointer-arith",
+    ],
+
+    static_libs: [
+        "libpopt",
+        "libconfig_shairport",
+    ],
+    shared_libs: [
+        "libcrypto",
+        "liblog",
+    ],
+}
