@@ -101,6 +101,12 @@ static int mdns_tinysvcmdns_register(char *ap1name, __attribute__((unused)) char
   for (ifa = ifa->ifa_next; ifa != NULL; ifa = ifa->ifa_next) {
     if (ifa->ifa_flags & IFF_LOOPBACK) // Skip loop-back interfaces
       continue;
+    // getifaddrs() sets ifa_addr to NULL for an interface with no address, and
+    // Android has plenty of those -- dummy0, the gre/sit/tunl tunnels, ifb0,
+    // thread-wpan. The loop above already guards for it; this one did not, so
+    // the listener thread segfaulted on the first address-less interface.
+    if (ifa->ifa_addr == NULL)
+      continue;
     // only check for the named interface, if specified
     if ((config.interface == NULL) || (strcmp(config.interface, ifa->ifa_name) == 0)) {
       switch (ifa->ifa_addr->sa_family) {
