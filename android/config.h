@@ -26,6 +26,13 @@
 
 #define CONFIG_OPENSSL 1
 #define CONFIG_TINYSVCMDNS 1
+/* Metadata over a pipe: track, artist, album, artwork, and the name of the
+   sending device. The controlling service reads it and publishes a
+   MediaSession, which is what puts anything on screen -- shairport itself is
+   headless. */
+#define CONFIG_METADATA 1
+#define CONFIG_METADATA_PIPE 1
+
 /* "-m none": advertisement handled elsewhere, or not at all. */
 #define CONFIG_MDNS_NONE 1
 #define CONFIG_HAMMERTON 1

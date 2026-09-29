@@ -8,7 +8,13 @@
 # audio and inet are the groups AAudio and the RTSP/RTP sockets need. media is
 # for the binder call to audioserver.
 
-service shairport-sync /system_ext/bin/shairport-sync -o aaudio --name ${persist.jetsontv.airplay.name:-Jetson TV}
+# The metadata pipe lives here. The daemon creates the FIFO itself, so init
+# only has to make the directory; 0755 because the controlling app reads it and
+# an app uid is not in the daemon's group.
+on post-fs-data
+    mkdir /data/misc/airplay 0755 audioserver audioserver
+
+service shairport-sync /system_ext/bin/shairport-sync -o aaudio --name ${persist.jetsontv.airplay.name:-Jetson TV} --metadata-pipename=/data/misc/airplay/metadata
     class main
     user audioserver
     group audio inet media net_raw

@@ -65,6 +65,12 @@ cc_binary {
         "tinysvcmdns.c",
         "mdns_none.c",
 
+        // metadata: the pipe carries track/artist/album/artwork and the
+        // sending device's name
+        "metadata/pc_queue.c",
+        "metadata/core.c",
+        "metadata/pipe.c",
+
         // ALAC: bundled Hammerton decoder
         "alac.c",
 
