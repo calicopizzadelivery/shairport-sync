@@ -59,11 +59,13 @@ cc_binary {
         // mDNS: bundled tinysvcmdns, no Avahi
         "mdns_tinysvcmdns.c",
         "tinysvcmdns.c",
+        "mdns_none.c",
 
         // ALAC: bundled Hammerton decoder
         "alac.c",
 
         // audio back ends
+        "audio_aaudio.c",
         "audio_dummy.c",
         "audio_pipe.c",
         "audio_stdout.c",
@@ -90,6 +92,7 @@ cc_binary {
         "libconfig_shairport",
     ],
     shared_libs: [
+        "libaaudio",
         "libcrypto",
         "liblog",
     ],

@@ -26,10 +26,13 @@
 
 #define CONFIG_OPENSSL 1
 #define CONFIG_TINYSVCMDNS 1
+/* "-m none": advertisement handled elsewhere, or not at all. */
+#define CONFIG_MDNS_NONE 1
 #define CONFIG_HAMMERTON 1
 
-/* Audio back ends. AAudio is added separately; these keep the daemon
-   useful and testable before it exists. */
+/* Audio back ends. AAudio is the real one; the others stay in because they
+   cost nothing and make the daemon testable without an audio device. */
+#define CONFIG_AAUDIO 1
 #define CONFIG_DUMMY 1
 #define CONFIG_PIPE 1
 #define CONFIG_STDOUT 1

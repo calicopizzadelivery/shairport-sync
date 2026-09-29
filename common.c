@@ -1945,6 +1945,9 @@ char *get_version_string() {
 #ifdef CONFIG_SOUNDIO
     strcat(version_string, "-soundio");
 #endif
+#ifdef CONFIG_AAUDIO
+    strcat(version_string, "-aaudio");
+#endif
 #ifdef CONFIG_DUMMY
     strcat(version_string, "-dummy");
 #endif
