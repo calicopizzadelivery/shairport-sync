@@ -1,0 +1,22 @@
+# AirPlay 1 audio receiver.
+#
+# Not started at boot: it holds a listening socket and advertises the box on
+# the network, which should be something the user turns on. The controlling
+# app sets persist.jetsontv.airplay.enabled and init does the rest, so nothing
+# needs permission to exec a system binary.
+#
+# audio and inet are the groups AAudio and the RTSP/RTP sockets need. media is
+# for the binder call to audioserver.
+
+service shairport-sync /system_ext/bin/shairport-sync -o aaudio --name ${persist.jetsontv.airplay.name:-Jetson TV}
+    class main
+    user audioserver
+    group audio inet media net_raw
+    disabled
+    seclabel u:r:shairport:s0
+
+on property:persist.jetsontv.airplay.enabled=true
+    start shairport-sync
+
+on property:persist.jetsontv.airplay.enabled=false
+    stop shairport-sync
