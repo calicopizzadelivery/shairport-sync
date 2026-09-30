@@ -43,3 +43,13 @@ on property:persist.jetsontv.airplay.enabled=true
 
 on property:persist.jetsontv.airplay.enabled=false
     stop shairport-sync
+
+# Another app has taken audio focus for good -- a film started in Kodi, say.
+# The controlling app ends the current session by writing a fresh value here
+# rather than switching the receiver off: restart drops the sender, and the
+# daemon is listening and advertising again within a second, so the next
+# AirPlay just works. Guarded on the enable flag, because restart starts a
+# stopped service and an interrupt must never bring up a receiver the user has
+# switched off.
+on property:jetsontv.airplay.interrupt=* && property:persist.jetsontv.airplay.enabled=true
+    restart shairport-sync
