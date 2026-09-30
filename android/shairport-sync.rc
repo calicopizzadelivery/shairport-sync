@@ -14,7 +14,13 @@
 on post-fs-data
     mkdir /data/misc/airplay 0755 audioserver audioserver
 
-service shairport-sync /system_ext/bin/shairport-sync -o aaudio --name ${persist.jetsontv.airplay.name:-Jetson TV} --metadata-pipename=/data/misc/airplay/metadata
+# The quotes around the name matter. init tokenises the line before it
+# expands anything, so an unquoted ${prop:-Jetson TV} splits at the space into
+# "${persist.jetsontv.airplay.name:-Jetson" and "TV}", and expanding the first
+# fails with "unexpected end of string ... looking for }". The service then
+# exits with status 6 on every start and init restarts it forever. Quoting
+# keeps it one token, and ${x:-default} expands normally after that.
+service shairport-sync /system_ext/bin/shairport-sync -o aaudio --name "${persist.jetsontv.airplay.name:-Jetson TV}" --metadata-pipename=/data/misc/airplay/metadata
     class main
     user audioserver
     group audio inet media net_raw
