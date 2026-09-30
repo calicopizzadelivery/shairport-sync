@@ -5,14 +5,25 @@
 # app sets persist.jetsontv.airplay.enabled and init does the rest, so nothing
 # needs permission to exec a system binary.
 #
-# audio and inet are the groups AAudio and the RTSP/RTP sockets need. media is
-# for the binder call to audioserver.
+# It runs as its own uid, system_ext_airplay (defined in device/nvidia/porg's
+# config.fs), and specifically not as audioserver. libaudioclient decides by
+# uid whether it is running *inside* audioserver: with that uid, AudioSystem
+# skips the binder lookup for AudioFlinger and AudioPolicyService and waits
+# INT32_MAX ms for an in-process service that never arrives, so the daemon hung
+# in AAudioStreamBuilder_openStream on every stream -- no error, no denial, no
+# sound. Not media either: audioserver trusts media to attribute tracks and
+# recordings to other uids, which a daemon parsing network input should not be
+# able to do.
+#
+# inet is the only group it needs, for its sockets. AAudio is a binder client,
+# so neither audio nor media is required, and it opens no raw sockets.
 
 # The metadata pipe lives here. The daemon creates the FIFO itself, so init
 # only has to make the directory; 0755 because the controlling app reads it and
 # an app uid is not in the daemon's group.
 on post-fs-data
-    mkdir /data/misc/airplay 0755 audioserver audioserver
+    # init re-owns the directory if it already exists under the old uid.
+    mkdir /data/misc/airplay 0755 system_ext_airplay system_ext_airplay
 
 # The quotes around the name matter. init tokenises the line before it
 # expands anything, so an unquoted ${prop:-Jetson TV} splits at the space into
@@ -22,8 +33,8 @@ on post-fs-data
 # keeps it one token, and ${x:-default} expands normally after that.
 service shairport-sync /system_ext/bin/shairport-sync -o aaudio --name "${persist.jetsontv.airplay.name:-Jetson TV}" --metadata-pipename=/data/misc/airplay/metadata
     class main
-    user audioserver
-    group audio inet media net_raw
+    user system_ext_airplay
+    group system_ext_airplay inet
     disabled
     seclabel u:r:shairport:s0
 
